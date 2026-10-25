@@ -1,7 +1,10 @@
 name: Playwright Tests
 on:
+  push:
   pull_request:
     branches: [ main, master ]
+  schedule:
+    - cron: '0 17 * * *'
 jobs:
   test:
     timeout-minutes: 60
@@ -16,6 +19,7 @@ jobs:
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
     - name: Run Playwright tests
+      id: playwright-tests
       run: npx playwright test
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
@@ -23,3 +27,21 @@ jobs:
         name: playwright-report
         path: playwright-report/
         retention-days: 30
+    - name: Email test result
+      if: ${{ always() && github.event_name != 'pull_request' }}
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp-mail.outlook.com
+        server_port: 587
+        secure: false
+        username: ${{ secrets.MAIL_USERNAME }}
+        password: ${{ secrets.MAIL_PASSWORD }}
+        subject: 'Playwright tests: ${{ steps.playwright-tests.outcome }}'
+        to: kahriman.burak@hotmail.com
+        from: Playwright CI <${{ secrets.MAIL_USERNAME }}>
+        body: |
+          Playwright test step result: ${{ steps.playwright-tests.outcome }}
+          Repository: ${{ github.repository }}
+          Branch: ${{ github.ref_name }}
+          Commit: ${{ github.sha }}
+          Workflow run and report artifact: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
